@@ -42,7 +42,8 @@ async function run() {
     // Save a new user
     app.post("/users", async (req, res) => {
       try {
-        const { uid, name, gender, phone, email, city, location } = req.body;
+        const { uid, name, gender, phone, email, city, location, accountType } =
+          req.body;
 
         if (!uid || !email) {
           return res.status(400).send({ error: "UID and email are required" });
@@ -53,7 +54,16 @@ async function run() {
           return res.status(400).send({ error: "User already exists" });
         }
 
-        const newUser = { uid, name, gender, phone, email, city, location };
+        const newUser = {
+          uid,
+          name,
+          gender,
+          phone,
+          email,
+          city,
+          location,
+          accountType,
+        };
         await usersCollection.insertOne(newUser);
         res.status(201).send({ message: "User added successfully" });
       } catch (error) {
