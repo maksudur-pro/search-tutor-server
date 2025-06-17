@@ -42,8 +42,17 @@ async function run() {
     // Save a new user
     app.post("/users", async (req, res) => {
       try {
-        const { uid, name, gender, phone, email, city, location, accountType } =
-          req.body;
+        const {
+          uid,
+          name,
+          gender,
+          phone,
+          email,
+          city,
+          location,
+          accountType,
+          image,
+        } = req.body;
 
         if (!uid || !email) {
           return res.status(400).send({ error: "UID and email are required" });
@@ -63,9 +72,10 @@ async function run() {
           city,
           location,
           accountType,
+          image,
         };
         await usersCollection.insertOne(newUser);
-        res.status(201).send({ message: "User added successfully" });
+        res.status(201).send(newUser);
       } catch (error) {
         console.error("Error saving user:", error);
         res.status(500).send({ error: "Failed to save user" });
