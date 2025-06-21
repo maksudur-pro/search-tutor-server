@@ -99,6 +99,49 @@ async function run() {
       }
     });
 
+    // PATCH route to update user's accountType
+    app.patch("/users/:uid/accountType", async (req, res) => {
+      try {
+        const uid = req.params.uid;
+        const { accountType } = req.body;
+
+        if (!accountType) {
+          return res.status(400).send({ error: "Missing accountType" });
+        }
+
+        const result = await usersCollection.updateOne(
+          { uid },
+          { $set: { accountType } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "User not found" });
+        }
+
+        res.send({ message: `User updated to ${accountType}` });
+      } catch (error) {
+        console.error("Error updating accountType:", error);
+        res.status(500).send({ error: "Failed to update accountType" });
+      }
+    });
+
+    // Delete user by uid
+    app.delete("/users/:uid", async (req, res) => {
+      try {
+        const uid = req.params.uid;
+        const result = await usersCollection.deleteOne({ uid });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ error: "User not found" });
+        }
+
+        res.send({ message: "User deleted successfully" });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).send({ error: "Failed to delete user" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     console.log(
