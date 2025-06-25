@@ -8,7 +8,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.lb3rxqj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -26,7 +26,8 @@ async function run() {
     // await client.connect();
 
     const db = client.db("searchTeacherDb"); // Use your DB name
-    const usersCollection = db.collection("users"); // Collection name
+    const usersCollection = db.collection("users");
+    const tuitionRequestsCollection = db.collection("tuitionRequests");
 
     // GET route to fetch all users
     app.get("/users", async (req, res) => {
@@ -139,6 +140,86 @@ async function run() {
       } catch (error) {
         console.error("Error deleting user:", error);
         res.status(500).send({ error: "Failed to delete user" });
+      }
+    });
+
+    // tuition Requests
+
+    app.post("/tuition-requests", async (req, res) => {
+      try {
+        const requestData = req.body;
+
+        // Define only required fields
+        const requiredFields = [
+          "phoneNumber",
+          "city",
+          "location",
+          "class",
+          "subjects",
+          "category",
+          "tuitionType",
+          "studentGender",
+          "tutorGenderPreference",
+          "salary",
+          "daysPerWeek",
+        ];
+
+        const missing = requiredFields.filter((field) => !requestData[field]);
+        if (missing.length > 0) {
+          return res
+            .status(400)
+            .send({ error: `Missing required fields: ${missing.join(", ")}` });
+        }
+
+        // Optional field (no need to check)
+        // requestData.additionalRequirements is optional
+
+        const result = await tuitionRequestsCollection.insertOne(requestData);
+        res.status(201).send({
+          success: true,
+          insertedId: result.insertedId,
+          message: "Tuition request saved successfully",
+        });
+      } catch (error) {
+        console.error("Error saving tuition request:", error);
+        res.status(500).send({ error: "Failed to save tuition request" });
+      }
+    });
+
+    // tuition get
+
+    app.get("/tuition-requests", async (req, res) => {
+      try {
+        const allRequests = await tuitionRequestsCollection
+          .find()
+          .sort({ _id: -1 })
+          .toArray();
+
+        res.send(allRequests);
+      } catch (error) {
+        console.error("Error fetching tuition requests:", error);
+        res.status(500).send({ error: "Failed to fetch tuition requests" });
+      }
+    });
+
+    app.patch("/tuition-requests/:id/call-status", async (req, res) => {
+      const { id } = req.params;
+      const { isCalled } = req.body;
+
+      try {
+        const result = await tuitionRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { isCalled } }
+        );
+
+        if (result.modifiedCount === 1) {
+          res.send({ success: true });
+        } else {
+          res.send({ success: false });
+        }
+      } catch (error) {
+        console.error("Error updating call status:", error);
+        res.status(500).send({ error: "Failed to update call status" });
       }
     });
 
