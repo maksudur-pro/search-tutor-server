@@ -28,6 +28,7 @@ async function run() {
     const db = client.db("searchTeacherDb"); // Use your DB name
     const usersCollection = db.collection("users");
     const tuitionRequestsCollection = db.collection("tuitionRequests");
+    const jobsCollection = db.collection("jobs");
 
     // GET route to fetch all users
     app.get("/users", async (req, res) => {
@@ -220,6 +221,116 @@ async function run() {
       } catch (error) {
         console.error("Error updating call status:", error);
         res.status(500).send({ error: "Failed to update call status" });
+      }
+    });
+
+    // job-requests
+
+    app.post("/job-requests", async (req, res) => {
+      try {
+        const {
+          jobTitle,
+          tuitionType,
+          category,
+          studentGender,
+          city,
+          location,
+          class: classLevel,
+          subjects,
+          daysPerWeek,
+          tutorGenderPreference,
+          salary,
+          studentsNumber,
+          tutoringTime,
+        } = req.body;
+
+        // Validate required fields
+        const requiredFields = [
+          "jobTitle",
+          "tuitionType",
+          "category",
+          "studentGender",
+          "city",
+          "location",
+          "class",
+          "subjects",
+          "daysPerWeek",
+          "tutorGenderPreference",
+          "salary",
+          "studentsNumber",
+          "tutoringTime",
+        ];
+
+        const missing = requiredFields.filter((field) => !req.body[field]);
+        if (missing.length > 0) {
+          return res.status(400).send({
+            success: false,
+            message: `Missing required fields: ${missing.join(", ")}`,
+          });
+        }
+
+        // Format posted date
+        const dateObj = new Date();
+        const postedDate = dateObj.toLocaleDateString("en-US", {
+          month: "short",
+          day: "2-digit",
+          year: "numeric",
+        });
+
+        let subjectsArray = [];
+        if (typeof subjects === "string") {
+          subjectsArray = subjects.split(",").map((s) => s.trim());
+        } else if (Array.isArray(subjects)) {
+          subjectsArray = subjects;
+        }
+
+        // Prepare job object
+        const newJob = {
+          title: jobTitle,
+          type: tuitionType,
+          category,
+          studentGender,
+          classLevel,
+          subjects: subjectsArray,
+          daysPerWeek,
+          tutorGenderPreference,
+          salary: Number(salary),
+          studentsNumber: Number(studentsNumber),
+          tutoringTime,
+          location: `${location}, ${city}`,
+          date: postedDate,
+        };
+
+        const result = await jobsCollection.insertOne(newJob);
+
+        res.status(201).send({
+          success: true,
+          message: "Tuition job posted successfully",
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        console.error("Error posting job:", error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to post tuition job",
+        });
+      }
+    });
+
+    // GET all job posts
+    app.get("/jobs", async (req, res) => {
+      try {
+        const jobs = await jobsCollection.find().sort({ _id: -1 }).toArray(); // সর্বশেষ পোস্ট প্রথমে দেখাবে
+        res.status(200).send({
+          success: true,
+          data: jobs,
+        });
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to fetch jobs",
+        });
       }
     });
 
