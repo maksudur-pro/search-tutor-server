@@ -29,6 +29,7 @@ async function run() {
     const usersCollection = db.collection("users");
     const tuitionRequestsCollection = db.collection("tuitionRequests");
     const jobsCollection = db.collection("jobs");
+    const applicationsCollection = db.collection("applications");
 
     // GET route to fetch all users
     app.get("/users", async (req, res) => {
@@ -331,6 +332,86 @@ async function run() {
           success: false,
           message: "Failed to fetch jobs",
         });
+      }
+    });
+
+    // POST: Apply to a job
+
+    app.post("/applications", async (req, res) => {
+      const { jobId, userId, userEmail } = req.body;
+
+      if (!jobId || !userId || !userEmail) {
+        return res
+          .status(400)
+          .send({ error: "Missing jobId, userId or userEmail" });
+      }
+
+      const existing = await applicationsCollection.findOne({ jobId, userId });
+
+      if (existing) {
+        return res.status(400).send({ error: "Already applied" });
+      }
+
+      const result = await applicationsCollection.insertOne({
+        jobId,
+        userId,
+        userEmail,
+        appliedAt: new Date(),
+      });
+
+      res.send({ success: true, insertedId: result.insertedId });
+    });
+
+    // GET: Check if a user has applied for a job
+    app.get("/applications/check", async (req, res) => {
+      const { jobId, userId } = req.query;
+
+      if (!jobId || !userId) {
+        return res.status(400).send({ error: "Missing jobId or userId" });
+      }
+
+      const applied = await applicationsCollection.findOne({ jobId, userId });
+
+      res.send({ hasApplied: !!applied });
+    });
+
+    // Get applications by userId
+
+    app.get("/applications/user/:userId", async (req, res) => {
+      try {
+        const userId = req.params.userId;
+
+        const appliedJobs = await applicationsCollection
+          .aggregate([
+            {
+              $match: { userId: userId },
+            },
+            {
+              $addFields: {
+                jobIdObj: { $toObjectId: "$jobId" }, // convert string to ObjectId
+              },
+            },
+            {
+              $lookup: {
+                from: "jobs",
+                localField: "jobIdObj",
+                foreignField: "_id",
+                as: "jobDetails",
+              },
+            },
+            {
+              $unwind: "$jobDetails",
+            },
+            {
+              $replaceRoot: { newRoot: "$jobDetails" },
+            },
+          ])
+          .toArray();
+
+        res.json(appliedJobs); // return only job info
+      } catch (error) {
+        console.error("Error fetching applied jobs:", error);
+        res.status(500).json({ message: "Server error" });
       }
     });
 
