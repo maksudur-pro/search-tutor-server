@@ -245,7 +245,6 @@ async function run() {
           tutoringTime,
         } = req.body;
 
-        // Validate required fields
         const requiredFields = [
           "jobTitle",
           "tuitionType",
@@ -270,7 +269,15 @@ async function run() {
           });
         }
 
-        // Format posted date
+        // ✅ Auto-incrementing jobId
+        const lastJob = await jobsCollection
+          .find()
+          .sort({ jobId: -1 })
+          .limit(1)
+          .toArray();
+        const jobId =
+          lastJob.length > 0 && lastJob[0].jobId ? lastJob[0].jobId + 1 : 1;
+
         const dateObj = new Date();
         const postedDate = dateObj.toLocaleDateString("en-US", {
           month: "short",
@@ -278,15 +285,12 @@ async function run() {
           year: "numeric",
         });
 
-        let subjectsArray = [];
-        if (typeof subjects === "string") {
-          subjectsArray = subjects.split(",").map((s) => s.trim());
-        } else if (Array.isArray(subjects)) {
-          subjectsArray = subjects;
-        }
+        const subjectsArray = Array.isArray(subjects)
+          ? subjects
+          : subjects.split(",").map((s) => s.trim());
 
-        // Prepare job object
         const newJob = {
+          jobId,
           title: jobTitle,
           type: tuitionType,
           category,
@@ -308,6 +312,7 @@ async function run() {
           success: true,
           message: "Tuition job posted successfully",
           insertedId: result.insertedId,
+          jobId: jobId,
         });
       } catch (error) {
         console.error("Error posting job:", error);
@@ -321,7 +326,7 @@ async function run() {
     // GET all job posts
     app.get("/jobs", async (req, res) => {
       try {
-        const jobs = await jobsCollection.find().sort({ _id: -1 }).toArray(); // সর্বশেষ পোস্ট প্রথমে দেখাবে
+        const jobs = await jobsCollection.find().sort({ _id: -1 }).toArray();
         res.status(200).send({
           success: true,
           data: jobs,
@@ -357,6 +362,7 @@ async function run() {
         userId,
         userEmail,
         appliedAt: new Date(),
+        status: "pending",
       });
 
       res.send({ success: true, insertedId: result.insertedId });
@@ -381,7 +387,7 @@ async function run() {
       try {
         const userId = req.params.userId;
 
-        const appliedJobs = await applicationsCollection
+        const appliedJobsWithStatus = await applicationsCollection
           .aggregate([
             {
               $match: { userId: userId },
@@ -402,16 +408,87 @@ async function run() {
             {
               $unwind: "$jobDetails",
             },
+            // Instead of replaceRoot, project a combined object
             {
-              $replaceRoot: { newRoot: "$jobDetails" },
+              $project: {
+                _id: 1,
+                status: 1,
+                appliedAt: 1,
+                job: "$jobDetails",
+              },
             },
           ])
           .toArray();
 
-        res.json(appliedJobs); // return only job info
+        res.json(appliedJobsWithStatus);
       } catch (error) {
         console.error("Error fetching applied jobs:", error);
         res.status(500).json({ message: "Server error" });
+      }
+    });
+
+    // ✅ PATCH: Admin updates application status
+    app.patch("/applications/:id/status", async (req, res) => {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const validStatuses = ["pending", "reviewed", "selected", "rejected"];
+      if (!status || !validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid or missing status" });
+      }
+
+      try {
+        const result = await applicationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ error: "Application not found" });
+        }
+
+        res.json({ success: true, message: `Status updated to \"${status}\"` });
+      } catch (error) {
+        console.error("Error updating application status:", error);
+        res.status(500).json({ error: "Server error" });
+      }
+    });
+
+    // ✅ GET: Get all applications with user and job info for admin
+    app.get("/applications", async (req, res) => {
+      try {
+        const allApplications = await applicationsCollection
+          .aggregate([
+            {
+              $addFields: {
+                jobIdObj: { $toObjectId: "$jobId" },
+              },
+            },
+            {
+              $lookup: {
+                from: "jobs",
+                localField: "jobIdObj",
+                foreignField: "_id",
+                as: "jobDetails",
+              },
+            },
+            { $unwind: "$jobDetails" },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "uid",
+                as: "userDetails",
+              },
+            },
+            { $unwind: "$userDetails" },
+          ])
+          .toArray();
+
+        res.json(allApplications);
+      } catch (error) {
+        console.error("Error fetching applications:", error);
+        res.status(500).json({ error: "Server error" });
       }
     });
 
