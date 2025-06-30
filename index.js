@@ -84,6 +84,55 @@ async function run() {
         res.status(500).send({ error: "Failed to save user" });
       }
     });
+    // Save a update user
+    app.patch("/users/:uid", async (req, res) => {
+      try {
+        const uid = req.params.uid;
+        const updateData = req.body;
+
+        // Only allow specific fields to update:
+        const allowedFields = [
+          "name",
+          "phone",
+          "gender",
+          "city",
+          "location",
+          "fbLink",
+          "institute",
+          "idNo",
+          "department",
+          "degree",
+          "passingYear",
+          "image",
+          "nid",
+        ];
+
+        // Filter updateData
+        const filteredData = {};
+        for (const key of allowedFields) {
+          if (updateData[key] !== undefined) {
+            filteredData[key] = updateData[key];
+          }
+        }
+
+        const result = await usersCollection.updateOne(
+          { uid },
+          { $set: filteredData }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "User not found" });
+        }
+
+        // Return updated user info
+        const updatedUser = await usersCollection.findOne({ uid });
+
+        res.send(updatedUser);
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).send({ error: "Failed to update user" });
+      }
+    });
 
     // Get a user by uid
     app.get("/users/:uid", async (req, res) => {
