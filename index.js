@@ -541,6 +541,38 @@ async function run() {
       }
     });
 
+    // PATCH: Update payment status
+    app.patch("/applications/:id/payment", async (req, res) => {
+      const { id } = req.params;
+      const { paymentStatus } = req.body;
+
+      const validStatuses = ["unpaid", "paid", "pending"];
+      if (!paymentStatus || !validStatuses.includes(paymentStatus)) {
+        return res
+          .status(400)
+          .json({ error: "Invalid or missing paymentStatus" });
+      }
+
+      try {
+        const result = await applicationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { paymentStatus } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ error: "Application not found" });
+        }
+
+        res.json({
+          success: true,
+          message: `Payment status updated to "${paymentStatus}"`,
+        });
+      } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).json({ error: "Server error" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     console.log(
