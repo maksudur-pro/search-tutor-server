@@ -389,6 +389,32 @@ async function run() {
       }
     });
 
+    // GET a single job post by ID
+    app.get("/jobs/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const job = await jobsCollection.findOne({ _id: new ObjectId(id) });
+
+        if (!job) {
+          return res.status(404).send({
+            success: false,
+            message: "Job not found",
+          });
+        }
+
+        res.status(200).send({
+          success: true,
+          data: job,
+        });
+      } catch (error) {
+        console.error("Error fetching job by ID:", error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to fetch job",
+        });
+      }
+    });
+
     // POST: Apply to a job
 
     app.post("/applications", async (req, res) => {
