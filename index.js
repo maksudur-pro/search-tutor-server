@@ -105,6 +105,7 @@ async function run() {
           "passingYear",
           "image",
           "nid",
+          "idCard",
         ];
 
         // Filter updateData
