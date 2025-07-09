@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const app = express();
+const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const port = process.env.PORT || 5000;
 
@@ -32,7 +33,7 @@ async function run() {
     const applicationsCollection = db.collection("applications");
 
     // GET route to fetch all users
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       try {
         const allUsers = await usersCollection.find().toArray();
         res.send(allUsers);
@@ -85,7 +86,7 @@ async function run() {
       }
     });
     // Save a update user
-    app.patch("/users/:uid", async (req, res) => {
+    app.patch("/users/:uid", verifyToken, async (req, res) => {
       try {
         const uid = req.params.uid;
         const updateData = req.body;
@@ -136,7 +137,7 @@ async function run() {
     });
 
     // Get a user by uid
-    app.get("/users/:uid", async (req, res) => {
+    app.get("/users/:uid", verifyToken, async (req, res) => {
       try {
         const uid = req.params.uid;
         const user = await usersCollection.findOne({ uid });
@@ -153,7 +154,7 @@ async function run() {
     });
 
     // PATCH route to update user's accountType
-    app.patch("/users/:uid/accountType", async (req, res) => {
+    app.patch("/users/:uid/accountType", verifyToken, async (req, res) => {
       try {
         const uid = req.params.uid;
         const { accountType } = req.body;
@@ -179,7 +180,7 @@ async function run() {
     });
 
     // Delete user by uid
-    app.delete("/users/:uid", async (req, res) => {
+    app.delete("/users/:uid", verifyToken, async (req, res) => {
       try {
         const uid = req.params.uid;
         const result = await usersCollection.deleteOne({ uid });
@@ -240,7 +241,7 @@ async function run() {
 
     // tuition get
 
-    app.get("/tuition-requests", async (req, res) => {
+    app.get("/tuition-requests", verifyToken, async (req, res) => {
       try {
         const allRequests = await tuitionRequestsCollection
           .find()
@@ -254,26 +255,30 @@ async function run() {
       }
     });
 
-    app.patch("/tuition-requests/:id/call-status", async (req, res) => {
-      const { id } = req.params;
-      const { isCalled } = req.body;
+    app.patch(
+      "/tuition-requests/:id/call-status",
+      verifyToken,
+      async (req, res) => {
+        const { id } = req.params;
+        const { isCalled } = req.body;
 
-      try {
-        const result = await tuitionRequestsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { isCalled } }
-        );
+        try {
+          const result = await tuitionRequestsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { isCalled } }
+          );
 
-        if (result.modifiedCount === 1) {
-          res.send({ success: true });
-        } else {
-          res.send({ success: false });
+          if (result.modifiedCount === 1) {
+            res.send({ success: true });
+          } else {
+            res.send({ success: false });
+          }
+        } catch (error) {
+          console.error("Error updating call status:", error);
+          res.status(500).send({ error: "Failed to update call status" });
         }
-      } catch (error) {
-        console.error("Error updating call status:", error);
-        res.status(500).send({ error: "Failed to update call status" });
       }
-    });
+    );
 
     // job-requests
 
@@ -418,7 +423,7 @@ async function run() {
 
     // POST: Apply to a job
 
-    app.post("/applications", async (req, res) => {
+    app.post("/applications", verifyToken, async (req, res) => {
       const { jobId, userId, userEmail } = req.body;
 
       if (!jobId || !userId || !userEmail) {
@@ -445,7 +450,7 @@ async function run() {
     });
 
     // GET: Check if a user has applied for a job
-    app.get("/applications/check", async (req, res) => {
+    app.get("/applications/check", verifyToken, async (req, res) => {
       const { jobId, userId } = req.query;
 
       if (!jobId || !userId) {
@@ -459,7 +464,7 @@ async function run() {
 
     // Get applications by userId
 
-    app.get("/applications/user/:userId", async (req, res) => {
+    app.get("/applications/user/:userId", verifyToken, async (req, res) => {
       try {
         const userId = req.params.userId;
 
@@ -504,7 +509,7 @@ async function run() {
     });
 
     // ✅ PATCH: Admin updates application status
-    app.patch("/applications/:id/status", async (req, res) => {
+    app.patch("/applications/:id/status", verifyToken, async (req, res) => {
       const { id } = req.params;
       const { status } = req.body;
 
@@ -531,7 +536,7 @@ async function run() {
     });
 
     // ✅ GET: Get all applications with user and job info for admin
-    app.get("/applications", async (req, res) => {
+    app.get("/applications", verifyToken, async (req, res) => {
       try {
         const allApplications = await applicationsCollection
           .aggregate([
@@ -569,7 +574,7 @@ async function run() {
     });
 
     // PATCH: Update payment status
-    app.patch("/applications/:id/payment", async (req, res) => {
+    app.patch("/applications/:id/payment", verifyToken, async (req, res) => {
       const { id } = req.params;
       const { paymentStatus } = req.body;
 
@@ -599,6 +604,42 @@ async function run() {
         res.status(500).json({ error: "Server error" });
       }
     });
+
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+
+      if (!user || !user.uid || !user.email) {
+        return res
+          .status(400)
+          .send({ success: false, error: "UID and email are required" });
+      }
+
+      const token = jwt.sign(user, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN,
+      });
+
+      // cookie set করো না, শুধু token response দাও
+      res.send({ success: true, token });
+    });
+
+    function verifyToken(req, res, next) {
+      // Authorization header থেকে token নাও
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res
+          .status(401)
+          .json({ error: "Unauthorized: No token provided" });
+      }
+
+      const token = authHeader.split(" ")[1];
+
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: "Invalid token" });
+        req.user = decoded;
+        next();
+      });
+    }
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
