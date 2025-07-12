@@ -331,7 +331,7 @@ async function run() {
           .limit(1)
           .toArray();
         const jobId =
-          lastJob.length > 0 && lastJob[0].jobId ? lastJob[0].jobId + 1 : 1;
+          lastJob.length > 0 && lastJob[0].jobId ? lastJob[0].jobId + 1 : 50000;
 
         const dateObj = new Date();
         const postedDate = dateObj.toLocaleDateString("en-US", {
@@ -359,6 +359,7 @@ async function run() {
           tutoringTime,
           location: `${location}, ${city}`,
           date: postedDate,
+          dateObj,
         };
 
         const result = await jobsCollection.insertOne(newJob);
