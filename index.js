@@ -509,7 +509,7 @@ async function run() {
       }
     });
 
-    // ✅ PATCH: Admin updates application status
+    // PATCH: Admin updates application status
     app.patch("/applications/:id/status", verifyToken, async (req, res) => {
       const { id } = req.params;
       const { status } = req.body;
@@ -536,7 +536,7 @@ async function run() {
       }
     });
 
-    // ✅ GET: Get all applications with user and job info for admin
+    // GET: Get all applications with user and job info for admin
     app.get("/applications", verifyToken, async (req, res) => {
       try {
         const allApplications = await applicationsCollection
@@ -564,6 +564,7 @@ async function run() {
               },
             },
             { $unwind: "$userDetails" },
+            { $sort: { _id: -1 } },
           ])
           .toArray();
 
