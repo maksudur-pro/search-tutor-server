@@ -179,6 +179,34 @@ async function run() {
       }
     });
 
+    // PATCH route to verify user
+    app.patch("/users/:uid/verify", verifyToken, async (req, res) => {
+      try {
+        const uid = req.params.uid;
+        const { isVerified } = req.body;
+
+        if (typeof isVerified !== "boolean") {
+          return res
+            .status(400)
+            .send({ error: "Missing or invalid isVerified value" });
+        }
+
+        const result = await usersCollection.updateOne(
+          { uid },
+          { $set: { isVerified } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "User not found" });
+        }
+
+        res.send({ message: `User verification updated to ${isVerified}` });
+      } catch (error) {
+        console.error("Error updating isVerified:", error);
+        res.status(500).send({ error: "Failed to update isVerified" });
+      }
+    });
+
     // Delete user by uid
     app.delete("/users/:uid", verifyToken, async (req, res) => {
       try {
