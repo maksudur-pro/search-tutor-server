@@ -386,6 +386,7 @@ async function run() {
           studentsNumber: Number(studentsNumber),
           tutoringTime,
           location: `${location}, ${city}`,
+          city,
           date: postedDate,
           dateObj,
         };
