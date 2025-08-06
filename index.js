@@ -33,13 +33,75 @@ async function run() {
     const applicationsCollection = db.collection("applications");
 
     // GET route to fetch all users
+    // app.get("/users", verifyToken, async (req, res) => {
+    //   try {
+    //     const allUsers = await usersCollection.find().toArray();
+    //     res.send(allUsers);
+    //   } catch (error) {
+    //     console.error("Error fetching users:", error);
+    //     res.status(500).send({ error: "Failed to fetch users" });
+    //   }
+    // });
+
     app.get("/users", verifyToken, async (req, res) => {
       try {
-        const allUsers = await usersCollection.find().toArray();
-        res.send(allUsers);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const role = req.query.role;
+        const search = req.query.search;
+
+        const filter = {};
+
+        if (role && role !== "all") {
+          filter.accountType = role;
+        }
+
+        if (search) {
+          filter.$or = [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+          ];
+        }
+
+        // Total matching users for current filter
+        const totalUsers = await usersCollection.countDocuments(filter);
+
+        // Fetch paginated users
+        const users = await usersCollection
+          .find(filter)
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .toArray();
+
+        const totalPages = Math.ceil(totalUsers / limit);
+
+        // Total counts for all roles (used for UI display)
+        const [totalTutors, totalGuardians, totalAdmins, totalAllUsers] =
+          await Promise.all([
+            usersCollection.countDocuments({ accountType: "tutor" }),
+            usersCollection.countDocuments({ accountType: "guardian" }),
+            usersCollection.countDocuments({ accountType: "admin" }),
+            usersCollection.estimatedDocumentCount(),
+          ]);
+
+        res.send({
+          success: true,
+          data: users,
+          totalUsers,
+          totalPages,
+          currentPage: page,
+          counts: {
+            totalTutors,
+            totalGuardians,
+            totalAdmins,
+            totalAllUsers,
+          },
+        });
       } catch (error) {
         console.error("Error fetching users:", error);
-        res.status(500).send({ error: "Failed to fetch users" });
+        res
+          .status(500)
+          .send({ success: false, error: "Failed to fetch users" });
       }
     });
 
