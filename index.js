@@ -439,12 +439,61 @@ async function run() {
     });
 
     // GET all job posts
+    // app.get("/jobs", async (req, res) => {
+    //   try {
+    //     const jobs = await jobsCollection.find().sort({ _id: -1 }).toArray();
+    //     res.status(200).send({
+    //       success: true,
+    //       data: jobs,
+    //     });
+    //   } catch (error) {
+    //     console.error("Error fetching jobs:", error);
+    //     res.status(500).send({
+    //       success: false,
+    //       message: "Failed to fetch jobs",
+    //     });
+    //   }
+    // });
     app.get("/jobs", async (req, res) => {
       try {
-        const jobs = await jobsCollection.find().sort({ _id: -1 }).toArray();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const city = req.query.city;
+        const search = req.query.search;
+
+        let filter = {};
+
+        if (city) {
+          filter.city = city;
+        }
+
+        if (search) {
+          filter.$expr = {
+            $regexMatch: {
+              input: { $toString: "$jobId" },
+              regex: search,
+              options: "i",
+            },
+          };
+        }
+
+        const totalJobs = await jobsCollection.countDocuments(filter);
+
+        const jobs = await jobsCollection
+          .find(filter)
+          .sort({ _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+
         res.status(200).send({
           success: true,
           data: jobs,
+          totalJobs,
+          totalPages: Math.ceil(totalJobs / limit),
+          currentPage: page,
         });
       } catch (error) {
         console.error("Error fetching jobs:", error);
