@@ -209,6 +209,33 @@ async function run() {
         res.status(500).send({ error: "Failed to update isVerified" });
       }
     });
+    // PATCH route to red verify user
+    app.patch("/users/:uid/redVerify", verifyToken, async (req, res) => {
+      try {
+        const uid = req.params.uid;
+        const { isRedVerified } = req.body;
+
+        if (typeof isRedVerified !== "boolean") {
+          return res
+            .status(400)
+            .send({ error: "Missing or invalid isRedVerified value" });
+        }
+
+        const result = await usersCollection.updateOne(
+          { uid },
+          { $set: { isRedVerified } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "User not found" });
+        }
+
+        res.send({ message: `User verification updated to ${isRedVerified}` });
+      } catch (error) {
+        console.error("Error updating isRedVerified:", error);
+        res.status(500).send({ error: "Failed to update isRedVerified" });
+      }
+    });
 
     // Delete user by uid
     app.delete("/users/:uid", verifyToken, async (req, res) => {
