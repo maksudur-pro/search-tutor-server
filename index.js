@@ -31,6 +31,9 @@ async function run() {
     const tuitionRequestsCollection = db.collection("tuitionRequests");
     const jobsCollection = db.collection("jobs");
     const applicationsCollection = db.collection("applications");
+    await usersCollection.createIndex({ uid: 1 });
+    await usersCollection.createIndex({ accountType: 1 });
+    await usersCollection.createIndex({ email: 1 }, { unique: true });
 
     // GET route to fetch all users
     // app.get("/users", verifyToken, async (req, res) => {
@@ -198,6 +201,31 @@ async function run() {
       } catch (error) {
         console.error("Error updating user:", error);
         res.status(500).send({ error: "Failed to update user" });
+      }
+    });
+
+    app.patch("/users/:id/note", verifyToken, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { adminNote } = req.body;
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { adminNote } }
+        );
+
+        if (result.modifiedCount === 1) {
+          res
+            .status(200)
+            .send({ success: true, message: "Admin note updated." });
+        } else {
+          res.status(404).send({ success: false, message: "User not found." });
+        }
+      } catch (error) {
+        console.error(error);
+        res
+          .status(500)
+          .send({ success: false, message: "Internal server error." });
       }
     });
 
