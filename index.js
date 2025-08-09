@@ -31,9 +31,6 @@ async function run() {
     const tuitionRequestsCollection = db.collection("tuitionRequests");
     const jobsCollection = db.collection("jobs");
     const applicationsCollection = db.collection("applications");
-    await usersCollection.createIndex({ uid: 1 });
-    await usersCollection.createIndex({ accountType: 1 });
-    await usersCollection.createIndex({ email: 1 }, { unique: true });
 
     // GET route to fetch all users
     // app.get("/users", verifyToken, async (req, res) => {
