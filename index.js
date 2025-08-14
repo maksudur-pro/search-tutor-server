@@ -617,6 +617,35 @@ async function run() {
       }
     });
 
+    // DELETE a job post by ID
+    app.delete("/jobs/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const result = await jobsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "Job not found",
+          });
+        }
+
+        res.status(200).send({
+          success: true,
+          message: "Job deleted successfully",
+        });
+      } catch (error) {
+        console.error("Error deleting job:", error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to delete job",
+        });
+      }
+    });
+
     // POST: Apply to a job
 
     app.post("/applications", verifyToken, async (req, res) => {
