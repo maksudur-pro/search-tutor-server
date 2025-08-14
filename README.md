@@ -14,7 +14,7 @@ This repository contains the **backend (server)** built with Node.js, Express.js
 ## 🛠 Tech Stack
 - Node.js
 - Express.js
-- MongoDB & Mongoose
+- MongoDB
 - Firebase Admin SDK
 - JSON Web Token (JWT)
 - Socket.io
